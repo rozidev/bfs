@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/alimsk/shopee"
+	req "github.com/imroc/req/v3"
 	jsoniter "github.com/json-iterator/go"
 )
 
@@ -27,7 +28,7 @@ var version string
 var (
 	delay      = flag.Duration("d", 0, "delay antar request saat checkout")
 	subFSTime  = flag.Duration("sub", 0, "kurangi waktu flash sale")
-	cookieFile = flag.String("f", "cookie", "cookie file")
+	cookieFile = flag.String("f", "bfs_state.json", "cookie file")
 )
 
 // https://github.com/golang/go/issues/20455#issuecomment-342287698
@@ -109,7 +110,48 @@ func main() {
 	}
 
 	urlstr := input("URL: ")
-	item, err := c.FetchItemFromURL(urlstr)
+	// item, err := c.FetchItemFromURL(urlstr)
+	itemx, r, err := shopee.ParseProdURL(urlstr)
+	// fmt.Println(r, "+", itemxz
+	if err != nil {
+		log.Fatal("s")
+	}
+	// convert variable r to string
+
+	client := req.C().EnableForceHTTP1() // Use C() to create a client.
+	// client.SetProxyURL("http://myproxy:8080")
+	// package get proxy
+	resp, err := client.R().
+		SetHeader("accept", "application/json").
+		SetHeaders(map[string]string{
+			"User-Agent": "Mozilla/5.0 (Linux; Android 10; MI 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.61 Mobile Safari/537.36200",
+			// get
+		}).
+		SetPathParams(map[string]string{ // Set multiple path params at once
+			"repo": fmt.Sprintf("%v", r),
+			"path": fmt.Sprintf("%v", itemx),
+		}).
+		// SetPathParam("itemid").
+		Get("https://shopee.co.id/api/v4/item/get?itemid={repo}&shopid={path}") // Set int in
+	if err != nil {
+		log.Fatal(err)
+	}
+	if resp.GetStatusCode() != 200 {
+		log.Fatal("Status code is not 200")
+	}
+	body, err := resp.ToString()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(body)
+	// decoder := json.NewDecoder(body.Reader())
+	// var data Tracks
+	// err = decoder.Decode(&data)
+	fmt.Println()
+	item, err := c.FetchItem(itemx, r)
+	if err != nil {
+		log.Fatal(err)
+	}
 	fatalIf(err)
 	fmt.Println(item.Name())
 
@@ -242,10 +284,14 @@ func itemInfo() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	item, err := c.FetchItemFromURL(urlstr)
+	itemx, r, err := shopee.ParseProdURL(urlstr)
+	fmt.Println(r)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(r)
+	}
+	item, err := c.FetchItem(r, itemx)
+	if err != nil {
+		log.Fatal(r)
 	}
 
 	fsalestatus := "tidak ada"
